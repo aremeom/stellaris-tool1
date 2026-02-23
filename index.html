@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Tech Browser (仅 result.json)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#f7f8fb;--card:#fff;--muted:#666;--cost:#e67e22;--weight:#9b59b6}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:var(--bg);margin:0;padding:12px}
+  .wrap{display:flex;gap:12px;height:calc(100vh - 24px)}
+  .left{width:360px;min-width:260px;display:flex;flex-direction:column;gap:8px}
+  .panel{background:var(--card);border:1px solid #e8ecf8;border-radius:8px;padding:10px;box-shadow:0 1px 0 rgba(0,0,0,0.02);overflow:hidden}
+  .search-row{display:flex;gap:8px;margin-top:6px}
+  input[type=file]{padding:6px}
+  input[type=search]{flex:1;padding:8px;border-radius:6px;border:1px solid #ddd}
+  select,button{padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff}
+  .list{margin-top:8px;overflow:auto;height:100%;padding:6px;border-radius:6px}
+  .list-item{padding:6px 8px;border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center}
+  .list-item:hover{background:#f0f6ff}
+  .selected{background:#eaf1ff;border-left:3px solid #3b82f6}
+  .right{flex:1;display:flex;flex-direction:column;gap:8px}
+  .detail{height:400px;overflow:auto}
+  .tech-swap-card:hover {background: #eef2ff !important;border-color: #3b82f6;}
+  .tech-swap-card h5 {color: #3b82f6;font-weight: 600;}
+  .tech-detail-item {margin-bottom: 8px;padding: 6px;background: #f8f9ff;border-radius: 4px;border-left: 3px solid #3b82f6;}
+  .tech-detail-item strong {color: #3b82f6;}
+  pre{white-space:pre-wrap;background:#fafafa;border-radius:6px;padding:8px;border:1px solid #eee}
+  .deps{display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:#fff;border:1px solid #e6e9ff;padding:6px 8px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:4px;}
+  .muted{color:var(--muted);font-size:13px}
+  .cn-info {margin: 10px 0; padding: 8px; background-color: #f0f9ff; border-radius: 6px; border-left: 3px solid #2196F3;}
+  .cn-title {font-weight: bold; margin-bottom: 4px;}
+  .cost-badge {background-color: #ffe8d6; color: var(--cost); padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight:500;}
+  .weight-badge {background-color: #f3e8fd; color: var(--weight); padding: 2px 6px;border-radius: 4px; font-size: 12px; font-weight:500;}
+  .tech-meta {display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0;}
+  .tech-meta-item {display: flex; align-items: center; gap: 4px;}
+  .meta-label {font-weight: 500; color: var(--muted);}
+  .tech-icon {width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid #eee; background: #f9f9f9;}
+  .tech-header {display: flex; align-items: center; gap: 12px; margin-bottom: 8px;}
+  .list-item-icon {width: 32px; height: 32px; object-fit: contain; border-radius: 4px; border: 1px solid #eee; background: #f9f9f9; flex-shrink: 0;}
+  .list-item-content {flex: 1; min-width: 0;}
+  .pill-id {font-size: 11px; color: #888; background: #f0f0f0; padding: 1px 4px; border-radius: 3px;}
+  .pill-icon {width: 20px; height: 20px; object-fit: contain; border-radius: 3px; border: 1px solid #eee; background: #f9f9f9; flex-shrink: 0;}
+  .dep-section {margin-bottom: 12px;}
+  .dep-section h4 {margin: 6px 0;}
+
+  /* 高级搜索样式 */
+  .advanced-search {margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;}
+  .filter-row {display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;}
+  .filter-group {display: flex; flex-direction: column; min-width: 120px;}
+  .filter-group label {font-size: 12px; color: var(--muted); margin-bottom: 4px;}
+  .filter-toggle {background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 13px; padding: 4px 0; text-align: left;}
+  .filter-toggle:hover {text-decoration: underline;}
+</style>
+</head>
+<body>
+<div style="max-width:100vw;max-height:100vh;margin:auto">
+  <h3>Stellaris Tech Browser（仅 result.json）</h3>
+  <div class="panel" style="margin-bottom:8px">
+    <label>导入 result.json：</label>
+    <input id="resultInput" type="file" accept=".json">
+    <button id="indexBtn">建立索引并渲染</button>
+    <span style="margin-left:8px" class="muted" id="loadStatus">未加载</span>
+  </div>
+
+  <div class="panel" style="margin-bottom:8px">
+    <label>导入翻译JSON（可选）：</label>
+    <input id="translationInput" type="file" accept=".json">
+    <button id="loadTranslationBtn">加载翻译</button>
+    <span style="margin-left:8px" class="muted" id="translationStatus">未加载翻译</span>
+  </div>
+
+  <div class="panel" style="margin-bottom:8px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="q" type="search" placeholder="按中文名称、英文名称或ID搜索..." />
+      <button id="clearBtn">清除</button>
+      <div style="margin-left:auto" class="muted" id="stats"></div>
+    </div>
+
+    <div class="advanced-search">
+      <button id="toggleAdvanced" class="filter-toggle">+ 高级检索</button>
+      <div id="advancedFilters" style="display:none;">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="areaFilter">领域</label>
+            <select id="areaFilter"><option value="">所有领域</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="tierFilter">等级</label>
+            <select id="tierFilter"><option value="">所有等级</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="categoryFilter">类别</label>
+            <select id="categoryFilter"><option value="">所有类别</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="rareFilter">稀有度</label>
+            <select id="rareFilter">
+              <option value="">所有稀有度</option>
+              <option value="rare">稀有科技</option>
+              <option value="normal">普通科技</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="left" style="height: 94vh">
+      <div class="panel" style="flex:1;display:flex;flex-direction:column">
+        <div style="font-weight:600;margin-bottom:6px">科技列表</div>
+        <div id="techList" class="list"></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="panel detail" id="detailCard">
+        <div class="tech-header">
+          <img id="techIcon" class="tech-icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==" alt="科技图标">
+          <div>
+            <h2 id="techTitle" style="margin:0">请选择科技</h2>
+            <div id="techMeta" class="muted"></div>
+          </div>
+        </div>
+        <div class="tech-meta" id="techCostWeight">
+          <!-- 这里将显示cost和weight -->
+        </div>
+        <div id="techCnInfo" class="cn-info" style="display:none">
+          <div class="cn-title">中文信息</div>
+          <div id="techNameCn"></div>
+          <div id="techDescCn" style="margin-top:4px"></div>
+        </div>
+        <hr/>
+        <div class="dep-section">
+          <h4>前置科技</h4>
+          <div id="prereqList" class="deps"></div>
+        </div>
+        <div class="dep-section">
+          <h4>后继科技</h4>
+          <div id="usedByList" class="deps"></div>
+        </div>
+      </div>
+      <div class="panel" style="height:40%;width: 75vw;overflow:auto">
+        <h4>Raw 数据</h4>
+        <pre id="raw">尚未加载数据</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let result = {};
+let translationData = {}; // 存储翻译数据
+let prereq_map = {};
+let deps_rev = {};
+let flatTechList = [];
+
+function escapeHtml(s){return (s??"").toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function applyTranslations() {
+  if (Object.keys(translationData).length === 0) return;
+
+  // 更新flatTechList中的翻译
+  flatTechList.forEach(tech => {
+    // 翻译名称
+    if (translationData[tech.id]) {
+      tech.name_cn = translationData[tech.id];
+    }
+
+    // 翻译描述（如果有的话）
+    const descKey = `${tech.id}_desc`;
+    if (translationData[descKey]) {
+      tech.desc_cn = translationData[descKey];
+    }
+  });
+
+  // 重新渲染列表和详情
+  renderList();
+  if (document.querySelector("#techList .selected")) {
+    const selectedTech = document.querySelector("#techList .selected").dataset.tech;
+    selectTech(selectedTech);
+  }
+}
+
+function stripQuotes(s) {
+    /** 去除字符串两端的引号 */
+    if (typeof s === 'string') {
+        return s.replace(/^["']|["']$/g, '');
+    }
+    return s;
+}
+
+function normalizeKey(key) {
+    /** 标准化键名：去除引号 */
+    if (typeof key === 'string') {
+        return stripQuotes(key);
+    }
+    return key;
+}
+
+function deepTranslateWithStripping(data, translationMap) {
+    /** 带剥壳功能的深度翻译 */
+    if (Array.isArray(data)) {
+        return data.map(item => deepTranslateWithStripping(item, translationMap));
+    }
+
+    if (data && typeof data === 'object') {
+        const translated = {};
+        for (const [key, value] of Object.entries(data)) {
+            // 剥壳并翻译键
+            const strippedKey = stripQuotes(key);
+            const translatedKey = translationMap[strippedKey] || strippedKey;
+
+            // 递归翻译值
+            translated[translatedKey] = deepTranslateWithStripping(value, translationMap);
+        }
+        return translated;
+    }
+
+    if (typeof data === 'string') {
+        // 剥壳后尝试翻译
+        const strippedValue = stripQuotes(data);
+        return translationMap[strippedValue] || strippedValue;
+    }
+
+    return data;
+}
+
+function updateTranslationStatus(message) {
+  document.getElementById('translationStatus').textContent = message;
+}
+
+function formatTranslatedData(data, translations, indent = 2) {
+    try {
+        const translated = deepTranslateWithStripping(data, translations);
+        return JSON.stringify(translated, null, indent);
+    } catch (e) {
+        console.error('Translation formatting error:', e);
+        return JSON.stringify(data, null, indent);
+    }
+}
+
+// 获取科技图标 - 直接从JSON数据中获取image属性
+function getTechIcon(techData) {
+  // 直接从科技数据中获取image属性
+  return techData?.image || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==";
+}
+
+function parsePrereqField(field) {
+  const out = [];
+  if (!field) return out;
+
+  // 处理对象形式的 prerequisites
+  if (typeof field === "object") {
+    // 首先检查是否有 OR 结构
+    if (field.OR) {
+      const orItems = [];
+
+      // 处理 OR 对象中的各个项
+      if (typeof field.OR === "object") {
+        for (const [key, value] of Object.entries(field.OR)) {
+          // 移除可能的引号
+          const cleanKey = key.replace(/^"|"$/g, '');
+          if (cleanKey.startsWith("tech_")) {
+            orItems.push(cleanKey);
+          }
+        }
+      }
+
+      if (orItems.length > 0) {
+        out.push({ type: "OR", items: orItems });
+      }
+    }
+
+    // 处理普通的前置条件（非OR部分）
+    for (const [key, value] of Object.entries(field)) {
+      if (key !== "OR") {
+        // 移除可能的引号
+        const cleanKey = key.replace(/^"|"$/g, '');
+        if (cleanKey.startsWith("tech_")) {
+          out.push(cleanKey);
+        }
+      }
+    }
+  }
+  // 处理其他可能的形式（虽然你说主要是对象形式，但为了健壮性保留）
+  else if (Array.isArray(field)) {
+    field.forEach(x => {
+      if (typeof x === "string") {
+        const cleanX = x.replace(/^"|"$/g, '');
+        if (cleanX.startsWith("tech_")) {
+          out.push(cleanX);
+        }
+      }
+    });
+  }
+  else if (typeof field === "string") {
+    const cleanField = field.replace(/^"|"$/g, '');
+    if (cleanField.startsWith("tech_")) {
+      out.push(cleanField);
+    }
+  }
+
+  return out;
+}
+
+function readJSONFile(file, cb){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{cb(JSON.parse(e.target.result));}
+    catch(err){alert("JSON 解析失败: "+err.message);}
+  };
+  r.readAsText(file);
+}
+
+document.getElementById('translationInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  readJSONFile(f, obj => {
+    translationData = obj;
+    updateTranslationStatus(`已加载翻译: ${Object.keys(obj).length} 条`);
+  });
+});
+document.getElementById('loadTranslationBtn').addEventListener('click', () => {
+  if (Object.keys(translationData).length > 0) {
+    applyTranslations();
+    updateStatus("翻译已应用到当前数据");
+  } else {
+    alert("请先导入翻译JSON文件");
+  }
+});
+document.getElementById('resultInput').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  readJSONFile(f, obj=>{result=obj; updateStatus("已加载 result.json");});
+});
+document.getElementById('indexBtn').addEventListener('click', buildAndRender);
+
+function buildAndRender(){
+  buildFlatIndex();
+  buildReverseFromPrereq();
+  renderList();
+  populateFilters();
+  updateStatus("索引完成："+flatTechList.length+" 个科技");
+  document.getElementById('raw').textContent="result keys: "+Object.keys(result).slice(0,50).join(", ");
+}
+
+function extractCost(costData) {
+    if (typeof costData === 'number') return costData;
+    if (typeof costData === 'string') return parseInt(costData) || 0;
+    if (costData && typeof costData === 'object') {
+        // 处理第二种分支结构：{ factor: "4000", modifier: [...] }
+        if (costData.factor) {
+            return parseInt(costData.factor) || 0;
+        }
+    }
+    return 0;
+}
+
+// 修改buildFlatIndex函数中的category处理
+function buildFlatIndex(){
+  flatTechList=[]; prereq_map={};
+  for(const [key,val] of Object.entries(result)){
+    if(Array.isArray(val)){
+      val.forEach((entry,idx)=>{
+        const title=(entry?.name||entry?.gui)||(idx? key+"#"+idx:key);
+        const name_cn = entry?.name || "";
+        const desc_cn = entry?.desc || "";
+        const cost = extractCost(entry?.cost);
+        const weight = entry?.weight || 0;
+        const icon = getTechIcon(entry);
+        // 特殊处理category字段
+        const category = entry?.category ? Object.keys(entry.category)[0] || "" : "";
+        const is_rare = entry?.is_rare === "yes" || entry?.is_rare === true;
+
+        // 检查是否有 technology_swap
+        const hasTechSwap = entry?.technology_swap && typeof entry.technology_swap === 'object';
+
+        flatTechList.push({
+          id: key,
+          title,
+          area: entry?.area || "",
+          tier: entry?.tier || 0,
+          category,
+          is_rare,
+          raw: entry,
+          name_cn,
+          desc_cn,
+          cost,
+          weight,
+          icon,
+          hasTechSwap,
+          techSwap: hasTechSwap ? entry.technology_swap : null
+        });
+
+        if(entry?.prerequisites){
+          const arr = parsePrereqField(entry.prerequisites);
+          if(arr.length) prereq_map[key] = arr;
+        }
+      });
+    } else if(val && typeof val==="object"){
+      const title=val.name||val.gui||key;
+      const name_cn = val?.name || "";
+      const desc_cn = val?.desc || "";
+      const cost = extractCost(val?.cost);
+      const weight = val?.weight || 0;
+      const icon = getTechIcon(val);
+      // 特殊处理category字段
+      const category = val?.category ? Object.keys(val.category)[0] || "" : "";
+      const is_rare = val?.is_rare === "yes" || val?.is_rare === true;
+
+      // 检查是否有 technology_swap
+      const hasTechSwap = val?.technology_swap && typeof val.technology_swap === 'object';
+
+      flatTechList.push({
+        id: key,
+        title,
+        area: val.area || "",
+        tier: val.tier || 0,
+        category,
+        is_rare,
+        raw: val,
+        name_cn,
+        desc_cn,
+        cost,
+        weight,
+        icon,
+        hasTechSwap,
+        techSwap: hasTechSwap ? val.technology_swap : null
+      });
+
+      if(val.prerequisites){
+        const arr = parsePrereqField(val.prerequisites);
+        if(arr.length) prereq_map[key] = arr;
+      }
+    } else {
+      const icon = getTechIcon({});
+      flatTechList.push({
+        id: key,
+        title: key,
+        area: "",
+        tier: 0,
+        category: "",
+        is_rare: false,
+        raw: val,
+        name_cn: "",
+        desc_cn: "",
+        cost: 0,
+        weight: 0,
+        icon,
+        hasTechSwap: false,
+        techSwap: null
+      });
+    }
+  }
+}
+
+function buildReverseFromPrereq(){
+  deps_rev={};
+  for(const [k,arr] of Object.entries(prereq_map)){
+    for (const item of arr) {
+      if (typeof item === "string") {
+        if (!deps_rev[item]) deps_rev[item] = [];
+        deps_rev[item].push(k);
+      } else if (item.type === "OR") {
+        for (const p of item.items) {
+          if (!deps_rev[p]) deps_rev[p] = [];
+          deps_rev[p].push(k);
+        }
+      }
+    }
+  }
+}
+
+function renderList(){
+  const container=document.getElementById("techList"); container.innerHTML="";
+  const q=(document.getElementById('q').value||"").trim().toLowerCase();
+  const areaSel=document.getElementById('areaFilter').value;
+  const tierSel=document.getElementById('tierFilter').value;
+  const categorySel=document.getElementById('categoryFilter').value;
+  const rareSel=document.getElementById('rareFilter').value;
+
+  const rows=flatTechList
+    .filter(t=>{
+      // 基础搜索条件
+      const matchesSearch = q==="" ||
+        t.id.toLowerCase().includes(q) ||
+        String(t.title).toLowerCase().includes(q) ||
+        String(t.name_cn).toLowerCase().includes(q);
+
+      // 高级筛选条件
+      const matchesArea = !areaSel || t.area === areaSel;
+      const matchesTier = !tierSel || String(t.tier) === tierSel;
+      const matchesCategory = !categorySel || t.category === categorySel;
+      const matchesRare = !rareSel || (rareSel === "rare" && t.is_rare) || (rareSel === "normal" && !t.is_rare);
+
+      return matchesSearch && matchesArea && matchesTier && matchesCategory && matchesRare;
+    })
+    .sort((a,b)=>String(a.area||"").localeCompare(String(b.area||""))||(a.tier-b.tier)||a.id.localeCompare(b.id));
+
+  document.getElementById('stats').textContent=rows.length+" 个匹配项";
+  for(const t of rows){
+    const el=document.createElement("div");
+    el.className="list-item"; el.dataset.tech=t.id;
+
+    // 使用中文名称作为主要显示，如果没有则使用ID
+    const displayName = t.name_cn || t.id;
+
+    // 添加area和tier信息
+    let metaInfoHtml = "";
+    if (t.area || t.tier) {
+      metaInfoHtml = `<div class="muted">id:${escapeHtml(t.id)} area:${escapeHtml(t.area)} tier:${escapeHtml(t.tier)} category:${escapeHtml(t.category)}</div>`;
+    }
+
+    // 添加cost和weight信息
+    let costWeightHtml = "";
+    if (t.cost || t.weight) {
+      costWeightHtml = `<div style="display:flex; gap:8px; margin-top:4px">
+        ${t.cost ? `<span class="cost-badge">cost: ${t.cost}</span>` : ''}
+        ${t.weight ? `<span class="weight-badge">weight: ${t.weight}</span>` : ''}
+      </div>`;
+    }
+
+    el.innerHTML=`<img class="list-item-icon" src="${t.icon}" alt="${t.id} icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjE2IiB5PSIxOCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlfIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg=='">
+                <div class="list-item-content">
+                  <div style="font-weight:600">${escapeHtml(displayName)}</div>
+                  ${metaInfoHtml}
+                  ${costWeightHtml}
+                </div>
+                <div class="muted">${escapeHtml(t.tier)}</div>`;
+    el.onclick=()=>selectTech(t.id);
+    container.appendChild(el);
+  }
+}
+
+function populateFilters(){
+  // 填充领域筛选器
+  const areaSel=document.getElementById("areaFilter");
+  areaSel.innerHTML=`<option value="">所有领域</option>`;
+  const areas=[...new Set(flatTechList.map(x=>x.area))].filter(x=>x);
+  areas.sort(); for(const a of areas){const opt=document.createElement("option");opt.value=a;opt.textContent=a;areaSel.appendChild(opt);}
+
+  // 填充等级筛选器
+  const tierSel=document.getElementById("tierFilter");
+  tierSel.innerHTML=`<option value="">所有等级</option>`;
+  const tiers=[...new Set(flatTechList.map(x=>x.tier))].filter(x=>x !== undefined && x !== null && x !== "");
+  tiers.sort((a,b)=>a-b); for(const t of tiers){const opt=document.createElement("option");opt.value=t;opt.textContent=t;tierSel.appendChild(opt);}
+
+  // 填充类别筛选器
+  const categorySel=document.getElementById("categoryFilter");
+  categorySel.innerHTML=`<option value="">所有类别</option>`;
+    const categories = [...new Set(flatTechList.map(x => x.category))].filter(x => x);
+    categories.sort();
+    for(const c of categories){const opt = document.createElement("option");opt.value = c;opt.textContent = c;categorySel.appendChild(opt);
+}
+}
+
+function selectTech(techId){
+  document.querySelectorAll("#techList .list-item").forEach(el=>el.classList.toggle("selected",el.dataset.tech===techId));
+  const tnode=flatTechList.find(x=>x.id===techId);
+
+  // 更新标题 - 使用中文名称，如果没有则使用ID
+  const displayName = tnode?.name_cn + "-" + techId;
+  document.getElementById('techTitle').innerHTML = displayName;
+
+  document.getElementById('techMeta').textContent=tnode?`area:${tnode.area} • tier:${tnode.tier} • category:${escapeHtml(tnode.category)}`:"";
+  document.getElementById('raw').textContent=JSON.stringify(tnode?.raw||result[techId]||{},null,2);
+
+  // 更新科技图标
+  const techIcon = document.getElementById('techIcon');
+  if (tnode && tnode.icon) {
+    techIcon.src = tnode.icon;
+    techIcon.alt = `${techId} icon`;
+    techIcon.onerror = function() {
+      this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==';
+    };
+  } else {
+    techIcon.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg�IjQ8IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==';
+  }
+
+  // 显示cost和weight
+  const costWeightDiv = document.getElementById('techCostWeight');
+  costWeightDiv.innerHTML = '';
+
+  if (tnode) {
+    if (tnode.cost || tnode.weight) {
+      if (tnode.cost) {
+        const costItem = document.createElement('div');
+        costItem.className = 'tech-meta-item';
+        costItem.innerHTML = `<span class="meta-label">Cost:</span> <span class="cost-badge">${tnode.cost}</span>`;
+        costWeightDiv.appendChild(costItem);
+      }
+
+      if (tnode.weight) {
+        const weightItem = document.createElement('div');
+        weightItem.className = 'tech-meta-item';
+        weightItem.innerHTML = `<span class="meta-label">Weight:</span> <span class="weight-badge">${tnode.weight}</span>`;
+        costWeightDiv.appendChild(weightItem);
+      }
+    }
+  }
+
+  // 显示中文信息
+  const cnInfoDiv = document.getElementById('techCnInfo');
+  const nameCnDiv = document.getElementById('techNameCn');
+  const descCnDiv = document.getElementById('techDescCn');
+
+  if (tnode && (tnode.name_cn || tnode.desc_cn)) {
+    nameCnDiv.innerHTML = tnode.name_cn ? `<strong>名称:</strong> ${escapeHtml(tnode.name_cn)}` : "";
+    descCnDiv.innerHTML = tnode.desc_cn ? `<strong>描述:</strong> ${escapeHtml(tnode.desc_cn)}` : "";
+    cnInfoDiv.style.display = 'block';
+  } else {
+    cnInfoDiv.style.display = 'none';
+  }
+
+  // 渲染依赖项 - 显示中文名称和图标
+  renderDepList("prereqList", prereq_map[techId] || [], "前置科技");
+  renderDepList("usedByList", deps_rev[techId] || [], "后继科技");
+
+  // 显示科技详情信息（包括触发条件和效果）
+  renderTechDetails(techId);
+
+  // 检查是否已经存在替代科技区域，如果不存在则创建
+  let techSwapSection = document.getElementById('techSwapSection');
+  let techSwapContent = document.getElementById('techSwapContent');
+
+  if (!techSwapSection) {
+    techSwapSection = document.createElement('div');
+    techSwapSection.className = 'dep-section';
+    techSwapSection.id = 'techSwapSection';
+    techSwapSection.innerHTML = '<h4>替代科技</h4>';
+
+    techSwapContent = document.createElement('div');
+    techSwapContent.id = 'techSwapContent';
+    techSwapSection.appendChild(techSwapContent);
+
+    // 插入到合适的位置（在被用于区域之后）
+    const detailCard = document.getElementById('detailCard');
+    const usedBySection = document.getElementById('usedByList').parentElement;
+    detailCard.insertBefore(techSwapSection, usedBySection.nextSibling);
+  }
+
+  // 显示 technology_swap 信息
+  renderTechSwapInfo(techId);
+}
+
+// 显示科技详情信息（包括触发条件和效果）
+function renderTechDetails(techId) {
+  const tnode = flatTechList.find(x => x.id === techId);
+  if (!tnode) return;
+
+  // 创建或获取详情信息容器
+  let detailsContainer = document.getElementById('techDetailsContainer');
+  if (!detailsContainer) {
+    detailsContainer = document.createElement('div');
+    detailsContainer.className = 'dep-section';
+    detailsContainer.id = 'techDetailsContainer';
+    detailsContainer.innerHTML = '<h4>科技详情</h4>';
+
+    const detailsContent = document.createElement('div');
+    detailsContent.id = 'techDetailsContent';
+    detailsContainer.appendChild(detailsContent);
+
+    // 插入到中文信息区域之后
+    const detailCard = document.getElementById('detailCard');
+    const cnInfoSection = document.getElementById('techCnInfo');
+    detailCard.insertBefore(detailsContainer, cnInfoSection.nextSibling);
+  }
+
+  const detailsContent = document.getElementById('techDetailsContent');
+  detailsContent.innerHTML = '';
+
+  // 使用翻译显示触发条件
+  if (tnode.raw?.potential) {
+    const triggerInfo = document.createElement('div');
+    triggerInfo.className = 'tech-detail-item';
+    const translatedTrigger = formatTranslatedData(tnode.raw.potential, translationData);
+    triggerInfo.innerHTML = `<strong>触发条件:</strong>\n<pre style="margin:4px 0;padding:4px;background:#f0f4ff;border-radius:4px;white-space:pre-wrap">${escapeHtml(translatedTrigger)}</pre>`;
+    detailsContent.appendChild(triggerInfo);
+  }
+
+  if (tnode.raw?.modifier) {
+    const modifierInfo = document.createElement('div');
+    modifierInfo.className = 'tech-detail-item';
+    const translatedModifier = formatTranslatedData(tnode.raw.modifier, translationData);
+    modifierInfo.innerHTML = `<strong>效果:</strong>\n<pre style="margin:4px 0;padding:4px;background:#f0f4ff;border-radius:4px;white-space:pre-wrap">${escapeHtml(translatedModifier)}</pre>`;
+    detailsContent.appendChild(modifierInfo);
+  }
+
+  if (tnode.raw?.weight_modifier) {
+    const weightModifierInfo = document.createElement('div');
+    weightModifierInfo.className = 'tech-detail-item';
+    const translatedWeightModifier = formatTranslatedData(tnode.raw.weight_modifier, translationData);
+    weightModifierInfo.innerHTML = `<strong>权重修饰器:</strong>\n<pre style="margin:4px 0;padding:4px;background:#f0f4ff;border-radius:4px;white-space:pre-wrap">${escapeHtml(translatedWeightModifier)}</pre>`;
+    detailsContent.appendChild(weightModifierInfo);
+  }
+
+  // 显示其他可能的重要属性
+  const importantKeys = ['is_rare', 'is_dangerous', 'is_reverse_engineerable', 'start_tech'];
+  for (const key of importantKeys) {
+    if (tnode.raw && key in tnode.raw) {
+      const info = document.createElement('div');
+      info.className = 'tech-detail-item';
+      info.innerHTML = `<strong>${key}:</strong> ${tnode.raw[key]}`;
+      detailsContent.appendChild(info);
+    }
+  }
+
+  // 如果没有详情信息，显示提示
+  if (detailsContent.children.length === 0) {
+    detailsContent.innerHTML = '<div class="muted">无额外详情信息</div>';
+  }
+}
+
+// 格式化触发条件信息（直接显示原始数据）
+function formatTriggerInfo(potential) {
+  const conditions = [];
+
+  for (const [key, value] of Object.entries(potential)) {
+    if (typeof value === 'object') {
+      conditions.push(`${key}: ${JSON.stringify(value)}`);
+    } else {
+      conditions.push(`${key}: ${value}`);
+    }
+  }
+
+  return conditions.join('，') || '无触发条件';
+}
+
+// 格式化效果信息（直接显示原始数据）
+function formatModifierInfo(modifier) {
+  const effects = [];
+
+  for (const [key, value] of Object.entries(modifier)) {
+    if (typeof value === 'object') {
+      effects.push(`${key}: ${JSON.stringify(value)}`);
+    } else {
+      effects.push(`${key}: ${value}`);
+    }
+  }
+
+  return effects.join('，') || '无效果信息';
+}
+
+function renderTechSwapInfo(techId) {
+  const techSwapContent = document.getElementById('techSwapContent');
+  techSwapContent.innerHTML = '';
+
+  const tnode = flatTechList.find(x => x.id === techId);
+
+  if (!tnode || !tnode.hasTechSwap || !tnode.techSwap) {
+    techSwapContent.innerHTML = '<div class="muted">无替代科技</div>';
+    return;
+  }
+
+  const techSwap = tnode.techSwap;
+  const swapName = techSwap.name;
+
+  if (!swapName || typeof swapName !== 'string') {
+    techSwapContent.innerHTML = '<div class="muted">替代科技信息不完整</div>';
+    return;
+  }
+
+  // 获取替代科技的详细信息
+  const swapTech = flatTechList.find(x => x.id === swapName);
+
+  // 优先从 techSwap 对象中获取 name_cn 和 image，如果没有则从 swapTech 中获取
+  const displayName = techSwap.name_cn || (swapTech ? swapTech.name_cn : swapName);
+
+  // 确定图标
+  let swapIcon = "yes";
+  if ('inherit_icon' in techSwap) {
+      swapIcon = techSwap.inherit_icon;
+  }
+
+  let iconSrc;
+  if (swapIcon === "yes") {
+      // 使用原始科技的图标
+      iconSrc = tnode.icon
+  } else {
+      // 使用替代科技的图标 - 优先从 techSwap 中获取，如果没有则从 swapTech 中获取
+      if (techSwap.image) {
+          iconSrc = techSwap.image;
+      } else {
+          iconSrc = swapTech ? getTechIcon(swapTech) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4Ii hoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==';
+      }
+  }
+  // 创建替代科技显示卡片
+  const swapCard = document.createElement('div');
+  swapCard.className = 'tech-swap-card';
+  swapCard.style.display = 'flex';
+  swapCard.style.gap = '12px';
+  swapCard.style.padding = '12px';
+  swapCard.style.border = '1px solid #e6e9ff';
+  swapCard.style.borderRadius = '8px';
+  swapCard.style.marginBottom = '12px';
+  swapCard.style.background = '#f8f9ff';
+
+  // 图标
+  const iconDiv = document.createElement('div');
+  const iconImg = document.createElement('img');
+  iconImg.src = iconSrc;
+  iconImg.alt = `${swapName} icon`;
+  iconImg.style.width = '48px';
+  iconImg.style.height = '48px';
+  iconImg.style.objectFit = 'contain';
+  iconImg.style.borderRadius = '6px';
+  iconImg.style.border = '1px solid #eee';
+  iconImg.style.background = '#f9f9f9';
+  iconImg.onerror = function() {
+    this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjI0IiB5PSIyNiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlfIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lm77niYc8L3RleHQ+Cjwvc3ZnPg==';
+  };
+  iconDiv.appendChild(iconImg);
+
+  // 信息
+  const infoDiv = document.createElement('div');
+  infoDiv.style.flex = '1';
+
+  const nameHeading = document.createElement('h5');
+  nameHeading.textContent = `${displayName} (替代科技)`;
+  nameHeading.style.margin = '0 0 8px 0';
+  nameHeading.style.color = '#333';
+
+  const idSpan = document.createElement('span');
+  idSpan.textContent = swapName;
+  idSpan.className = 'pill-id';
+  idSpan.style.marginLeft = '8px';
+
+  nameHeading.appendChild(idSpan);
+
+  // 添加触发条件信息（直接显示原始数据）
+  const triggerInfo = document.createElement('div');
+  triggerInfo.className = 'muted';
+  triggerInfo.style.marginBottom = '8px';
+
+  if (techSwap.trigger) {
+    triggerInfo.textContent = `触发条件: ${formatTriggerInfo(techSwap.trigger)}`;
+  }
+
+  // 添加效果信息（直接显示原始数据）
+  const modifierInfo = document.createElement('div');
+  modifierInfo.className = 'muted';
+  modifierInfo.style.marginBottom = '8px';
+
+  if (techSwap.modifier) {
+    modifierInfo.textContent = `效果: ${formatModifierInfo(techSwap.modifier)}`;
+  }
+
+  // 添加继承信息
+  if ('inherit_effects' in techSwap) {
+    const inheritInfo = document.createElement('div');
+    inheritInfo.className = 'muted';
+    inheritInfo.style.marginBottom = '8px';
+    inheritInfo.textContent = `继承效果: ${techSwap.inherit_effects}`;
+    infoDiv.appendChild(inheritInfo);
+  }
+
+  infoDiv.appendChild(nameHeading);
+  if (triggerInfo.textContent) infoDiv.appendChild(triggerInfo);
+  if (modifierInfo.textContent) infoDiv.appendChild(modifierInfo);
+
+  swapCard.appendChild(iconDiv);
+  swapCard.appendChild(infoDiv);
+
+  // 添加点击跳转功能
+  swapCard.style.cursor = 'pointer';
+  swapCard.onclick = () => {
+    if (swapTech) {
+      selectTech(swapName);
+    }
+  };
+  swapCard.onmouseover = () => {
+    swapCard.style.background = '#eef2ff';
+  };
+  swapCard.onmouseout = () => {
+    swapCard.style.background = '#f8f9ff';
+  };
+
+  techSwapContent.appendChild(swapCard);
+
+  // 添加原始科技和替代科技之间的关系说明
+  const relationInfo = document.createElement('div');
+  relationInfo.className = 'muted';
+  relationInfo.style.marginTop = '8px';
+  relationInfo.innerHTML = `<strong>关系说明:</strong> 此科技在特定条件下会被 ${displayName} 替代`;
+
+  techSwapContent.appendChild(relationInfo);
+}
+
+function renderDepList(containerId, arr, title) {
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = "";
+
+  if (!arr || !arr.length) {
+    cont.innerHTML = `<div class='muted'>无${title}</div>`;
+    return;
+  }
+
+  // 分离普通前置条件和OR结构
+  const normalPrereqs = arr.filter(item => typeof item === "string");
+  const orStructures = arr.filter(item => typeof item === "object" && item.type === "OR");
+
+  // 先显示普通前置条件
+  if (normalPrereqs.length > 0) {
+    for (const id of normalPrereqs) {
+      const tech = flatTechList.find(t => t.id === id);
+      const displayName = tech ? (tech.name_cn || tech.id) : id;
+      const icon = tech ? tech.icon : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwIiB5PSIxMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuWbvueJhzwvdGV4dD4KPC9zdmc+";
+
+      const p = document.createElement("div");
+      p.className = "pill";
+      p.innerHTML = `
+        <img class="pill-icon" src="${icon}" alt="${id} icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2ljdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwIiB5PSIxMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9rPSJtaWRkbGUiPuWbvueJhzwvdGV4dD4KPC9zdmc+'">
+        ${escapeHtml(displayName)}
+        <span class="pill-id">${id}</span>
+      `;
+      p.onclick = () => selectTech(id);
+      cont.appendChild(p);
+    }
+  }
+
+  // 然后显示OR结构
+  if (orStructures.length > 0) {
+    for (const orStruct of orStructures) {
+      // 创建 OR 结构的容器
+      const orContainer = document.createElement("div");
+      orContainer.style.width = "100%";
+      orContainer.style.marginTop = normalPrereqs.length > 0 ? "12px" : "0";
+      orContainer.style.marginBottom = "12px";
+
+      const orLabel = document.createElement("div");
+      orLabel.textContent = "满足以下任一条件:";
+      orLabel.style.fontWeight = "bold";
+      orLabel.style.marginBottom = "8px";
+      orContainer.appendChild(orLabel);
+
+      const orItemsContainer = document.createElement("div");
+      orItemsContainer.style.display = "flex";
+      orItemsContainer.style.flexWrap = "wrap";
+      orItemsContainer.style.gap = "8px";
+      orItemsContainer.style.paddingLeft = "12px";
+
+      // 添加OR结构中的各个选项
+      for (const techId of orStruct.items) {
+        const tech = flatTechList.find(t => t.id === techId);
+        const displayName = tech ? (tech.name_cn || tech.id) : techId;
+        const icon = tech ? tech.icon : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly83d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwIiB5PSIxMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuWbvueJhzwvdGV4dD4KPC9zdmc+";
+
+        const p = document.createElement("div");
+        p.className = "pill";
+        p.innerHTML = `
+          <img class="pill-icon" src="${icon}" alt="${techId} icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwIiB5PSIxMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuWbvueJhzwvdGV4dD4KPC9zdmc+'">
+          ${escapeHtml(displayName)}
+          <span class="pill-id">${techId}</span>
+        `;
+        p.onclick = () => selectTech(techId);
+        orItemsContainer.appendChild(p);
+      }
+
+      orContainer.appendChild(orItemsContainer);
+      cont.appendChild(orContainer);
+    }
+  }
+}
+
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  document.getElementById('q').value="";
+  document.getElementById('areaFilter').value="";
+  document.getElementById('tierFilter').value="";
+  document.getElementById('categoryFilter').value="";
+  document.getElementById('rareFilter').value="";
+  renderList();
+});
+
+function updateStatus(s){document.getElementById('loadStatus').textContent=s;}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('q').addEventListener('keydown',e=>{if(e.key==="Enter")renderList();});
+
+  // 添加高级筛选器的监听事件
+  document.getElementById('areaFilter').addEventListener('change',()=>renderList());
+  document.getElementById('tierFilter').addEventListener('change',()=>renderList());
+  document.getElementById('categoryFilter').addEventListener('change',()=>renderList());
+  document.getElementById('rareFilter').addEventListener('change',()=>renderList());
+
+  // 高级筛选器展开/收起功能
+  document.getElementById('toggleAdvanced').addEventListener('click', function() {
+    const advancedFilters = document.getElementById('advancedFilters');
+    if (advancedFilters.style.display === 'none') {
+      advancedFilters.style.display = 'block';
+      this.textContent = '- 收起高级检索';
+    } else {
+      advancedFilters.style.display = 'none';
+      this.textContent = '+ 高级检索';
+    }
+  });
+
+  fetch("./json/technology_result.json")
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("加载失败");
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log("读取成功", data);
+      // 在这里调用你的渲染函数
+      result = data
+      buildAndRender();
+    })
+    .catch(err => {
+      console.error(err);
+    });
+});
+</script>
+</body>
+</html>
