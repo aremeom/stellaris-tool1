@@ -130,14 +130,15 @@
           <div id="techNameCn"></div>
           <div id="techDescCn" style="margin-top:4px"></div>
         </div>
-        <hr/>
-        <div class="dep-section">
-          <h4>前置科技</h4>
-          <div id="prereqList" class="deps"></div>
-        </div>
-        <div class="dep-section">
-          <h4>后继科技</h4>
-          <div id="usedByList" class="deps"></div>
+        <div id="dep-section-part">
+          <div class="dep-section">
+            <h4>前置科技</h4>
+            <div id="prereqList" class="deps"></div>
+          </div>
+          <div class="dep-section">
+            <h4>后继科技</h4>
+            <div id="usedByList" class="deps"></div>
+          </div>
         </div>
       </div>
       <div class="panel" style="height:40%;width: 75vw;overflow:auto">
@@ -662,7 +663,7 @@ function renderTechDetails(techId) {
 
     // 插入到中文信息区域之后
     const detailCard = document.getElementById('detailCard');
-    const cnInfoSection = document.getElementById('techCnInfo');
+    const cnInfoSection = document.getElementById('dep-section-part');
     detailCard.insertBefore(detailsContainer, cnInfoSection.nextSibling);
   }
 
